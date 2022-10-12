@@ -1,0 +1,102 @@
+<html lang="fr">
+  <head>
+    <meta charset="utf-8" />
+    <script src="https://unpkg.com/@zxing/browser@latest"></script>
+  </head>
+
+  <body>
+    <input type="file" id="ticket" />
+    <div id="image"></div>
+
+    <pre id="result"></pre>
+
+    <script>
+      const codeReader = new ZXingBrowser.BrowserAztecCodeReader();
+      console.log('ZXingBrowser code reader initialized');
+
+      const fileInput = document.getElementById('ticket');
+      const imageContainer = document.getElementById('image');
+      fileInput.addEventListener('change', async (event) => {
+        const imageData = await event.target.files[0].arrayBuffer();
+        const imgElement = document.createElement('img');
+        imgElement.setAttribute(
+          'src',
+          URL.createObjectURL(new Blob([imageData], { type: `image/png` }))
+        );
+
+        imageContainer.innerHTML = '';
+        imageContainer.appendChild(imgElement);
+        await decodeFun(imgElement);
+      });
+
+      const decodeFun = async (buffer) => {
+        const resultEl = document.getElementById('result');
+
+        codeReader
+          .decodeFromImageElement(buffer)
+          .then((rawResult) => {
+            console.log({ rawResult });
+            const result = extract(rawResult.text);
+            if (
+              rawResult.numBits !== 632 &&
+              rawResult.numBits !== 648 &&
+              result.header !== 'i0CV'
+            ) {
+              console.warn('Unknown format, raw result:', rawResult);
+              resultEl.textContent = 'Format inconnu, résultat du scan :\n';
+              resultEl.textContent += rawResult.text;
+            } else {
+              console.log('Format ok, parsed result:', result);
+              resultEl.textContent = 'Format reconnu, résultat :\n';
+              Object.keys(result).forEach((k) => {
+                resultEl.textContent += `- ${k}: ${result[k]}\n`;
+              });
+            }
+          })
+          .catch((err) => {
+            console.error(err);
+            resultEl.textContent = err;
+          });
+      };
+
+      const extract = (str) => {
+        const header = str.slice(0, 4);
+        const tripRepo = str.slice(4, 10);
+        const eTicketNumber = str.slice(10, 19);
+        const unknown1 = str.slice(19, 23);
+        const birthday = str.slice(23, 33);
+        const departure = str.slice(33, 38);
+        const arrival = str.slice(38, 43);
+        const trainNumber = str.slice(43, 48);
+        const tripDate = str.slice(48, 53);
+        const unknown2 = str.slice(53, 83);
+        const lastname = str.slice(83, 100).trim();
+        const firstname = str.slice(100, 110).trim();
+        const category = str.slice(110, 111);
+        const reduction = str.slice(111, 116);
+        const ending = str.slice(116, str.length);
+        return {
+          header,
+          tripRepo,
+          eTicketNumber,
+          unknown1,
+          birthday,
+          departure,
+          arrival,
+          trainNumber,
+          tripDate,
+          unknown2,
+          lastname,
+          firstname,
+          category,
+          reduction,
+          ending,
+        };
+      };
+
+      for (const element of document.getElementsByClassName('decodeButton')) {
+        element.addEventListener('click', decodeFun, false);
+      }
+    </script>
+  </body>
+</html>
